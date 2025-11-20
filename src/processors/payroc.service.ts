@@ -2,15 +2,23 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
-import { IProcessorService, VolumeAndCount, PayrocRawBatch } from './iprocessor.service';
+import { IProcessorService, VolumeAndCount } from './iprocessor.service';
 import { PayrocAuthService } from './payroc-auth.service';
 import { AxiosError } from 'axios';
+
+interface PayrocRawBatch {
+  batchId: number;
+  saleAmount?: number;
+  returnAmount?: number;
+  transactionCount?: number;
+}
+
 
 interface PayrocBatchParams {
   merchantId: string;
   date: string;
   limit: number;
-  after?: number; 
+  after?: number;
 }
 
 @Injectable()
@@ -54,25 +62,31 @@ export class PayrocService implements IProcessorService {
   async calculateVolumeAndCount(
     merchantId: string,
     processorName: string,
-    dateScope: { from: string | null },
+     dateScope: { from: string; to: string },
   ): Promise<VolumeAndCount> {
     const { officeCode, apiKey } = this.getPayrocConfig(processorName);
-    this.logger.log(`Calculating Payroc volume for merchant ${merchantId} (${officeCode}) since ${dateScope.from || 'the beginning'}`);
+     this.logger.log(`Calculating Payroc volume for ${merchantId} from ${dateScope.from} to ${dateScope.to}`);
     
     let totalNetVolume = 0;
     let totalTransactionCount = 0;
     
-    const startDate = dateScope.from ? new Date(dateScope.from) : new Date('2020-01-01');
-    const endDate = new Date();
+    // This now gets the start of the current month from the merchant processor
+    const startDate = new Date(dateScope.from);
+    const endDate = new Date(dateScope.to);
 
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-      const currentDate = this.formatDate(d);
+     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const currentDate = d.toISOString().split('T')[0]; // YYYY-MM-DD
+      
       let hasMore = true;
       let afterCursor: number | null = null;
       const accessToken = await this.payrocAuthService.getAccessToken(officeCode, apiKey);
       
       while (hasMore) {
-       const params: PayrocBatchParams = { merchantId, date: currentDate, limit: 100 };
+        const params: PayrocBatchParams = { 
+            merchantId, 
+            date: currentDate, 
+            limit: 100 
+        };
         if (afterCursor) params.after = afterCursor;
 
         try {
@@ -82,7 +96,7 @@ export class PayrocService implements IProcessorService {
                 params,
               }),
             );
-            const batches = response.data.data;
+            const batches: PayrocRawBatch[] = response.data.data;
     
             if (batches?.length > 0) {
               for (const batch of batches) {
@@ -96,8 +110,8 @@ export class PayrocService implements IProcessorService {
 
         } catch(error) {
             const axiosError = error as AxiosError;
-            this.logger.error(`Failed to fetch Payroc batches for merchant ${merchantId} on date ${currentDate}`, axiosError.response?.data);
-            throw error; 
+            this.logger.error(`Failed to fetch Payroc batches for ${merchantId} on ${currentDate}`, axiosError.response?.data);
+            throw error;
         }
       }
     }

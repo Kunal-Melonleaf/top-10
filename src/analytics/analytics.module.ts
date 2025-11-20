@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { BullModule } from '@nestjs/bull';
+import { BullModule } from '@nestjs/bullmq';
 import { ScheduleModule } from '@nestjs/schedule';
 import { SalesforceModule } from '../salesforce/salesforce.module';
 import { ProcessorModule } from '../processors/processors.module';
@@ -11,8 +11,8 @@ import { FinalizationProcessor } from './processors/finalization.processor';
 
 @Module({
   imports: [
-    ScheduleModule.forRoot(),
-   BullModule.registerQueue(
+  ScheduleModule.forRoot(),
+  BullModule.registerQueue(
       { 
         name: 'user-analytics',
         defaultJobOptions: { attempts: 2, backoff: { type: 'exponential', delay: 10000 } }

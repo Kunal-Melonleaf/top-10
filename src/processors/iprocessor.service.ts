@@ -8,7 +8,7 @@ export interface IProcessorService {
   calculateVolumeAndCount(
     merchantId: string,
     processorName: string,
-    dateScope: { from: string | null },
+    dateScope: { from: string; to: string },
   ): Promise<VolumeAndCount>;
 }
 

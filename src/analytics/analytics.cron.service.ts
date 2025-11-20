@@ -1,6 +1,6 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { InjectQueue } from '@nestjs/bull';
+import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { SalesForceService, SalesforceUser, Top10UpdatePayload  } from '../salesforce/salesforce.service';
 import { Redis } from 'ioredis';

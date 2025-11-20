@@ -1,5 +1,5 @@
 import { Controller, Post, Body, Get, Param, HttpException, HttpStatus, Inject } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bull';
+import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import { REDIS_CLIENT } from '../redis/redis.provider';
@@ -8,6 +8,7 @@ import { REDIS_CLIENT } from '../redis/redis.provider';
 export class AnalyticsController {
   constructor(
     @InjectQueue('user-analytics') private readonly userAnalyticsQueue: Queue,
+    @InjectQueue('finalization') private readonly finalizationQueue: Queue,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
@@ -41,5 +42,31 @@ export class AnalyticsController {
     const state = await job.getState();
  const progress = job.progress || 0; 
     return { jobId, state, progress };
+  }
+
+    @Get('debug/flow/:jobId')
+  async inspectFlow(@Param('jobId') jobId: string) {
+    const job = await this.finalizationQueue.getJob(jobId);
+
+    if (!job) {
+      return { status: 'Job Not Found' };
+    }
+
+    // Minimal, safe properties
+    const state = await job.getState();
+    
+    // Attempt to get return value (if completed)
+    let returnvalue = null;
+    try { returnvalue = job.returnvalue; } catch (e) {console.error(e); }
+
+    return {
+      jobId: job.id,
+      state: state,
+      failedReason: job.failedReason,
+      stacktrace: job.stacktrace,
+      returnvalue: returnvalue,
+      // Manually check if it looks like it's waiting
+      isStuck: state === 'active' || state === 'waiting-children'
+    };
   }
 }

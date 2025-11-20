@@ -11,13 +11,20 @@ export interface SalesforceUser {
 
 export interface SalesforceMerchant {
   Id: string;
-  MerchantID__c: string;
-  ProcessorName__c: string;
+  MerchantID: string;     
+  ProcessorName: string;
+  name: string; 
 }
 
 export interface Top10UpdatePayload {
   userId: string;
-  top10Merchants: { merchantId: string, totalVolume: number }[];
+  portalId: string;
+  top10Merchants: { 
+      name: string;
+      merchantId: string; 
+      totalVolume: number;
+      totalCount: number; 
+  }[];
 }
 
 
@@ -89,18 +96,29 @@ export class SalesForceService {
   }
 
   async getAllUsers(): Promise<SalesforceUser[]> {
-    const path = '/services/apexrest/v1/users/list/';
+    const path = '/services/apexrest/v1/user/alluserlist';
     return this.callApi<SalesforceUser[]>(path, 'GET');
   }
   
   async getMerchantsForUser(portalId: string): Promise<SalesforceMerchant[]> {
-    const path = '/services/apexrest/v1/merchants/list/';
-    return this.callApi<SalesforceMerchant[]>(path, 'POST', { portalId });
+    const path = `/services/apexrest/v1/user/allmerchant?portalPartnerId=${portalId}`;
+
+    return this.callApi<SalesforceMerchant[]>(path, 'GET');
   }
   
-  async bulkUpdateTop10Merchants(data: Top10UpdatePayload[]): Promise<any> {
-    const path = `/services/apexrest/v1/analytics/topMerchants/`;
-    const result: any = await this.callApi(path, 'PATCH', { updates: data });
-    return result;
+  async bulkUpdateTop10Merchants(dataList: Top10UpdatePayload[]): Promise<any> {
+    const path = `/services/apexrest/v1/user/toptenmerchant/`;
+    const flatPayload = dataList.flatMap(userEntry => 
+      userEntry.top10Merchants.map(item => ({
+        portalPartnerId: userEntry.portalId,
+        merchant: item.merchantId,
+        name:item.name,
+        volume: item.totalVolume.toString(), 
+        transactions: item.totalCount.toString() 
+      }))
+    );
+
+    this.logger.debug(`Sending bulk update to Salesforce. Items count: ${flatPayload.length}`);
+    return this.callApi(path, 'POST', flatPayload);
   }
 }
