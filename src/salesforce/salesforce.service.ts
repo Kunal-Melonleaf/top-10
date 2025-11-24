@@ -111,13 +111,13 @@ export class SalesForceService {
     const flatPayload = dataList.flatMap(userEntry => 
       userEntry.top10Merchants.map(item => ({
         portalPartnerId: userEntry.portalId,
-        merchant: item.merchantId,
+        merchant: item.merchantId, 
         name:item.name,
         volume: item.totalVolume.toString(), 
         transactions: item.totalCount.toString() 
       }))
     );
-
+    this.logger.log(flatPayload)
     this.logger.debug(`Sending bulk update to Salesforce. Items count: ${flatPayload.length}`);
     return this.callApi(path, 'POST', flatPayload);
   }

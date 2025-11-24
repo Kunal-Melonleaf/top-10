@@ -1,4 +1,4 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq'; // FIX: Updated import
+import { Processor, WorkerHost } from '@nestjs/bullmq'; 
 import { Job } from 'bullmq';
 import { Logger, Inject } from '@nestjs/common';
 import { Redis } from 'ioredis';
@@ -7,7 +7,7 @@ import { REDIS_CLIENT } from '../../redis/redis.provider';
 interface FinalizationJobData { userId: string; portalId: string; merchantIds: string[]; merchantNameMap: Record<string, string>;}
 
 @Processor('finalization')
-export class FinalizationProcessor extends WorkerHost { // FIX: Extend WorkerHost
+export class FinalizationProcessor extends WorkerHost { 
   private readonly logger = new Logger(FinalizationProcessor.name);
 
   constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {
@@ -35,13 +35,20 @@ export class FinalizationProcessor extends WorkerHost { // FIX: Extend WorkerHos
         this.redis.mget(...countKeys),
       ]);
 
-      const results = merchantIds
-        .map((id, index) => ({
+       const results = merchantIds
+        .map((id, index) => {
+          const name = merchantNameMap[id];
+          if (!name) {
+              this.logger.warn(`[DEBUG] Name lookup failed for ID ${id}. Map has ${Object.keys(merchantNameMap).length} entries.`);
+          }
+
+          return {
           merchantId: id,
-          merchantName: merchantNameMap[id] || 'Unknown',
+          name: name || 'Unknown',
           totalVolume: parseFloat(volumes[index] || '0') || 0,
           totalCount: parseInt(counts[index] || '0', 10) || 0,
-        }))
+        };
+      })
         .sort((a, b) => b.totalVolume - a.totalVolume)
         .slice(0, 10);
 

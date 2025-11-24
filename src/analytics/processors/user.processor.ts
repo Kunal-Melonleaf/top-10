@@ -37,6 +37,10 @@ export class UserAnalyticsProcessor extends WorkerHost {
 
     try {
       const merchants = await this.salesforceService.getMerchantsForUser(portalId);
+      if (merchants && merchants.length > 0) {
+          this.logger.warn(`[DEBUG] Inspecting first merchant object from Salesforce:`);
+          this.logger.warn(JSON.stringify(merchants[0], null, 2));
+      }
       this.logger.debug(`Raw merchants response from Salesforce for user ${userId}:`);
       this.logger.debug(JSON.stringify(merchants, null, 2));
       if (!merchants || merchants.length === 0) {
@@ -47,6 +51,9 @@ export class UserAnalyticsProcessor extends WorkerHost {
       this.logger.log(`Found ${merchants.length} merchants for User ID: ${userId}. Creating child jobs.`);
       const merchantNameMap: Record<string, string> = {};
       merchants.forEach(m => {
+         if (!m.name) {
+             this.logger.error(`[DEBUG] Merchant ${m.MerchantID} has undefined Name! Keys available: ${Object.keys(m).join(', ')}`);
+        }
         merchantNameMap[m.MerchantID] = m.name || 'Unknown Merchant';
       });
       const childJobs = merchants.map(merchant => ({
